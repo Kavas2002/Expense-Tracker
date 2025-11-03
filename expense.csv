@@ -1,0 +1,7 @@
+<<<<<<< HEAD
+Date,Expense Type,Category,Description,Amount,Payment Mode,Location,Receipt Path,Notes
+2025-11-03,personal,Food,egg,30.0,upi,shollinganallur,,breakfast
+=======
+Date,Expense Type,Category,Description,Amount,Payment Mode,Location,Receipt Path,Notes
+2025-11-03,personal,Food,egg,30.0,upi,shollinganallur,,breakfast
+>>>>>>> 2dea1dd38b843a479ff3e6592eb0cf11aa2820a1
