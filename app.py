@@ -1,6 +1,46 @@
+from azure.storage.blob import BlobServiceClient
 import streamlit as st
 import pandas as pd
 from datetime import date
+import io
+
+# AZURE CONNECTION PARAMETER
+
+AZURE_CONNECTION_STRING = st.secrets["AZURE_CONNECTION_STRING"]
+CONTAINER_NAME = st.secrets["CONTAINER_NAME"]
+BLOB_NAME = st.secrets["BLOB_NAME"]
+
+blob_service_client = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
+container_client = blob_service_client.get_container_client(CONTAINER_NAME)
+blob_client = container_client.get_blob_client(BLOB_NAME)
+
+# LOAD CSV FROM AZURE
+def load_csv_from_azure():
+    try:
+        stream = io.BytesIO()
+        blob_client.download_blob().readinto(stream)
+        stream.seek(0)
+        df = pd.read_csv(stream)
+        return df
+    except Exception:
+        return pd.DataFrame({
+            "Date": [],
+            "Category": [],
+            "Description": [],
+            "Payment Method": [],
+            "Amount": [],
+            "Notes": []
+        })
+
+# Upload CSV to Azure
+def upload_csv_to_azure(df):
+    stream = io.StringIO()
+    df.to_csv(stream, index=False)
+    blob_client.upload_blob(stream.getvalue(), overwrite=True)
+
+# Initialize session state
+if "expenses" not in st.session_state:
+    st.session_state["expenses"] = load_csv_from_azure()
 
 st.set_page_config(page_title="Daily Expenses Tracker", layout="wide")
 
@@ -54,12 +94,8 @@ with st.sidebar.form("expense_form"):
             })
             st.session_state["expenses"] = pd.concat([st.session_state["expenses"], new_entry], ignore_index=True)
                     # Save to CSV
-            csv_path = "expenses.csv"
-            try:
-                # If file does not exist, write with header
-                st.session_state["expenses"].to_csv(csv_path, index=False)
-            except Exception as e:
-                st.error(f"Error saving to CSV: {e}")
+            
+            upload_csv_to_azure(st.session_state["expenses"])
 
             st.success("Expense added successfully and saved to CSV!")
 
