@@ -1,31 +1,69 @@
 import streamlit as st
-from datetime import datetime,date
 import pandas as pd
+from datetime import date
 
-st.title("Expense Tracker")
-st.write(" Enter the details of the expense")
+st.set_page_config(page_title="Daily Expenses Tracker", layout="wide")
 
+st.title("💰 Daily Expenses Tracker")
 
-with st.form("Expense_form"):
-    expense_date = st.date_input("date",date.today())
-    expense_time = st.time_input("Time",datetime.now().time())
-    category = st.selectbox("Select the category of expense",["Personal","Business","Friend","Debt","Other"])
-    amount = st.number_input("Enter the Spent amount",min_value=0.0,format="%.2f")
-    Descrition = st.text_input("enter the Product/Service description")
-    localtion = st.text
-    
-    checkbox = st.checkbox("confirm expense")
-    submitted = st.form_submit_button("Submit")
+# Initialize session state for storing expenses
+def init_state():
+    if "expenses" not in st.session_state:
+        st.session_state["expenses"] = pd.DataFrame({
+            "Date": [],
+            "Category": [],
+            "Description": [],
+            "Payment Method": [],
+            "Amount": [],
+            "Notes": []
+        })
+
+init_state()
+
+# Sidebar - Add new expense
+st.sidebar.header("Add New Expense")
+
+with st.sidebar.form("expense_form"):
+    expense_date = st.date_input("Date", value=date.today())
+    category = st.selectbox(
+        "Category",
+        ["Food", "Travel", "Groceries", "Rent", "Bills", "Shopping", "Health", "Entertainment", "Others"],
+    )
+    description = st.text_input("Description")
+    payment_method = st.selectbox(
+        "Payment Method", ["Cash", "UPI", "Credit Card", "Debit Card", "Bank Transfer"]
+    )
+    amount = st.number_input("Amount", min_value=0.0, format="%.2f")
+    notes = st.text_area("Notes", height=70)
+
+    confirm_add = st.checkbox("✔ Confirm to Add Expense")
+
+    submitted = st.form_submit_button("Add Expense")
+
     if submitted:
-        if checkbox:
-            st.success("expense recorded successfully")
-            Expense_data={
-                "Date":expense_date,
-                "Time":expense_time,
-                "Category":category,
-                "Amount":amount,
-                "Description":Descrition
-            }
+        if not confirm_add:
+            st.warning("Please tick the checkbox to confirm adding the expense.")
         else:
-            st.warring("please confirm the checkbox")
-        
+            new_entry = pd.DataFrame({
+                "Date": [expense_date],
+                "Category": [category],
+                "Description": [description],
+                "Payment Method": [payment_method],
+                "Amount": [amount],
+                "Notes": [notes],
+            })
+            st.session_state["expenses"] = pd.concat([st.session_state["expenses"], new_entry], ignore_index=True)
+                    # Save to CSV
+            csv_path = "expenses.csv"
+            try:
+                # If file does not exist, write with header
+                st.session_state["expenses"].to_csv(csv_path, index=False)
+            except Exception as e:
+                st.error(f"Error saving to CSV: {e}")
+
+            st.success("Expense added successfully and saved to CSV!")
+
+# Display Expenses
+st.subheader("📄 All Expenses")
+st.dataframe(st.session_state["expenses"], use_container_width=True)
+
