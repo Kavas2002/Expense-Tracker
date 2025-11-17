@@ -10,17 +10,22 @@ AZURE_CONNECTION_STRING = st.secrets["AZURE_CONNECTION_STRING"]
 CONTAINER_NAME = st.secrets["CONTAINER_NAME"]
 BLOB_NAME = st.secrets["BLOB_NAME"]
 
-blob_service_client = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
-container_client = blob_service_client.get_container_client(CONTAINER_NAME)
-blob_client = container_client.get_blob_client(BLOB_NAME)
+def get_blob_client():
+    blob_service_client = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
+    container_client = blob_service_client.get_container_client(CONTAINER_NAME)
+    return container_client.get_blob_client(BLOB_NAME)
 
 # LOAD CSV FROM AZURE
 def load_csv_from_azure():
     try:
+        blob_client = get_blob_client()
         stream = io.BytesIO()
         blob_client.download_blob().readinto(stream)
         stream.seek(0)
         df = pd.read_csv(stream)
+        if "Date" in df.columns:
+            df["Date"] = df["Date"].astype(str)
+
         return df
     except Exception:
         return pd.DataFrame({
@@ -34,6 +39,7 @@ def load_csv_from_azure():
 
 # Upload CSV to Azure
 def upload_csv_to_azure(df):
+    blob_client = get_blob_client()
     stream = io.StringIO()
     df.to_csv(stream, index=False)
     blob_client.upload_blob(stream.getvalue(), overwrite=True)
@@ -64,7 +70,7 @@ init_state()
 st.sidebar.header("Add New Expense")
 
 with st.sidebar.form("expense_form"):
-    expense_date = st.date_input("Date", value=date.today())
+    expense_date = st.date_input("Date")
     category = st.selectbox(
         "Category",
         ["Food", "Travel", "Groceries", "Rent", "Bills", "Shopping", "Health", "Entertainment", "Others"],
@@ -94,12 +100,13 @@ with st.sidebar.form("expense_form"):
             })
             st.session_state["expenses"] = pd.concat([st.session_state["expenses"], new_entry], ignore_index=True)
                     # Save to CSV
-            
+            st.session_state["expenses"]["Date"] = st.session_state["expenses"]["Date"].astype(str)
+    
             upload_csv_to_azure(st.session_state["expenses"])
 
             st.success("Expense added successfully and saved to CSV!")
 
 # Display Expenses
 st.subheader("📄 All Expenses")
-st.dataframe(st.session_state["expenses"], use_container_width=True)
+st.dataframe(st.session_state["expenses"], width="stretch")
 
